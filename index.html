@@ -30,7 +30,7 @@ body {
   background: var(--deep);
   color: var(--text);
   font-family: 'Zen Kaku Gothic New', sans-serif;
-  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -271,6 +271,44 @@ input[type=range] { width:100%; accent-color:var(--wave); cursor:pointer; }
 .btn-clear:hover { border-color:#ff8f00; color:#ff8f00; }
 .speed-wrap { display:flex; align-items:center; gap:7px; margin-left:auto; }
 .speed-wrap label { font-size:.7rem; color:var(--muted); }
+
+/* ── iPad / Mobile レスポンシブ ── */
+@media (max-width: 900px) {
+  /* 左右パネルを細く */
+  .main {
+    grid-template-columns: 160px 1fr 0px;
+  }
+  /* 右パネルを非表示（結果はオーバーレイで表示） */
+  .panel.right { display: none; }
+
+  /* ヘッダーを小さく */
+  header { padding: 8px 12px; }
+  header h1 { font-size: .95rem; }
+  .phase-pill { padding: 3px 8px; font-size: .65rem; }
+
+  /* コントロールバーをコンパクトに */
+  .controls { padding: 8px 12px; gap: 8px; }
+  .btn { padding: 8px 14px; font-size: .8rem; }
+  .speed-wrap { margin-left: auto; }
+}
+
+@media (max-width: 700px) {
+  /* さらに小さい画面：左パネルも折りたたむ */
+  .main {
+    grid-template-columns: 140px 1fr 0px;
+  }
+  .panel { padding: 10px 8px; gap: 8px; }
+  .bw-slot { padding: 6px 8px; }
+  .bw-label { font-size: .72rem; }
+  .bw-sub { display: none; }
+}
+
+/* iPad縦向き対応：overflow-yでスクロール可能に */
+@media (max-height: 800px) {
+  body { min-height: 100dvh; overflow-y: auto; }
+  .main { min-height: 0; }
+  .controls { position: sticky; bottom: 0; z-index: 100; }
+}
 
 /* ── Result overlay (shown at end of animation) ── */
 .result-overlay {
