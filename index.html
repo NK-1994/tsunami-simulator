@@ -804,19 +804,13 @@ function buildWallMeshes(isW){
 function updateWaterMesh(eta){
   const scaleY=6;
   // ── surface ──
-  // PlaneGeometry rotateX(-π/2) 後の頂点順：
-  //   vi = j*NX+i  →  z = +(NY/2-j)*CH*0.6  （j=0が手前＝正のz）
-  // 2DキャンバスはJ=0が上端（手前）なので，etaのjをそのまま使えばよい
-  // ただしPlaneGeometryの頂点z方向は j=0→奥（負のz）なので，
-  // eta側のjを (NY-1-j) に反転する必要がある
   const pos=waterGeo.attributes.position;
   const col=waterGeo.attributes.color;
   for(let j=0;j<NY;j++) for(let i=0;i<NX;i++){
     const vi=j*NX+i;
-    const jEta=NY-1-j;   // 波面頂点j → etaのjEta（反転）
-    const h=eta[i*NY+jEta]*scaleY;
+    const h=eta[i*NY+j]*scaleY;   // 反転なし（壁と同じ向き）
     pos.setY(vi,h);
-    const t=eta[i*NY+jEta]/3.0;
+    const t=eta[i*NY+j]/3.0;
     let r,g,b;
     if(t>0){r=0.1+t*0.9;g=0.4-t*0.3;b=1.0-t*0.6;}
     else{const s=-t;r=0.1-s*0.05;g=0.4+s*0.3;b=1.0;}
@@ -831,10 +825,10 @@ function updateWaterMesh(eta){
       const pts=obj.geometry.attributes.position;
       if(obj.userData.dir==='x'){
         const j=obj.userData.lineJ;
-        for(let i=0;i<NX;i++) pts.setY(i, eta[i*NY+(NY-1-j)]*scaleY+0.3);
+        for(let i=0;i<NX;i++) pts.setY(i, eta[i*NY+j]*scaleY+0.3);
       } else {
         const iIdx=obj.userData.lineI;
-        for(let k=0;k<NY;k++) pts.setY(k, eta[iIdx*NY+(NY-1-k)]*scaleY+0.3);
+        for(let k=0;k<NY;k++) pts.setY(k, eta[iIdx*NY+k]*scaleY+0.3);
       }
       pts.needsUpdate=true;
     }
