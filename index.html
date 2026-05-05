@@ -272,6 +272,19 @@ input[type=range] { width:100%; accent-color:var(--wave); cursor:pointer; }
 .speed-wrap { display:flex; align-items:center; gap:7px; margin-left:auto; }
 .speed-wrap label { font-size:.7rem; color:var(--muted); }
 
+.btn-pause {
+  background:transparent; border:1px solid var(--accent); color:var(--accent);
+}
+.btn-pause:hover { background:rgba(0,180,216,.15); }
+.btn-pause.paused { background:rgba(0,180,216,.2); border-color:var(--safe); color:var(--safe); }
+
+.btn-view {
+  background:transparent; border:1px solid var(--border); color:var(--muted);
+  font-size:.8rem; padding:9px 14px;
+}
+.btn-view:hover { border-color:var(--accent); color:var(--accent); }
+.btn-view.active { background:rgba(33,150,243,.2); border-color:var(--wave); color:var(--wave); }
+
 /* ── iPad / Mobile レスポンシブ ── */
 @media (max-width: 900px) {
   /* 左右パネルを細く */
@@ -530,6 +543,9 @@ input[type=range] { width:100%; accent-color:var(--wave); cursor:pointer; }
     <button class="btn btn-run" id="btnRun" onclick="runSim()">▶ RUN</button>
     <button class="btn btn-back" id="btnBack" onclick="goBack()">← 配置に戻る</button>
     <button class="btn btn-reset" onclick="fullReset()">リセット</button>
+    <button class="btn btn-pause" id="btnPause" onclick="togglePause()" style="display:none;">⏸ 一時停止</button>
+    <button class="btn btn-view" id="btnView2d" onclick="switchView('2d')" style="display:none;">🗺 2D表示</button>
+    <button class="btn btn-view" id="btnView3d" onclick="switchView('3d')" style="display:none;">🌐 3D表示</button>
     <div class="speed-wrap">
       <label>再生速度</label>
       <input type="range" id="speedS" min="1" max="8" step="1" value="2" style="width:70px">
@@ -557,6 +573,9 @@ let phase='place'; // 'place' | 'running' | 'result'
 
 // Saved frames for 3D replay
 let savedFrames=[], frameIdx=0, replayRAF=null;
+let viewMode='3d';    // '3d' | '2d'
+let isPaused=false;
+let replay2dRAF=null;
 
 // ============================================================
 // Canvas 2D setup
@@ -871,14 +890,26 @@ function setPhase(p){
     hintEl.style.display='none'; camHintEl.style.display='block';
     btnRun.style.display='none';
     btnBack.style.display='inline-block';
+    document.getElementById('btnPause').style.display='inline-block';
+    document.getElementById('btnView2d').style.display='inline-block';
+    document.getElementById('btnView3d').style.display='none';
+    document.getElementById('btnView2d').classList.remove('active');
+    document.getElementById('btnView3d').classList.add('active');
+    viewMode='3d'; isPaused=false;
     startReplay();
   }
 }
 
 function goBack(){
   if(replayRAF){cancelAnimationFrame(replayRAF);replayRAF=null;}
+  if(replay2dRAF){cancelAnimationFrame(replay2dRAF);replay2dRAF=null;}
+  isPaused=false;
   // 結果データを破棄
   coastHist=[]; baseCoastHist=[]; baseArrival=null; savedFrames=[];
+  // ボタンを非表示
+  document.getElementById('btnPause').style.display='none';
+  document.getElementById('btnView2d').style.display='none';
+  document.getElementById('btnView3d').style.display='none';
   // 右パネルの結果表示をクリア
   ['rWave','rBase','rAttn','rArr','rBaseArr'].forEach(id=>{
     const el=document.getElementById(id);
@@ -1319,25 +1350,98 @@ async function runSim(){
 // ============================================================
 function startReplay(){
   if(replayRAF){cancelAnimationFrame(replayRAF);replayRAF=null;}
-  frameIdx=0;
+  frameIdx=0; isPaused=false;
   let tickCount=0;
   document.getElementById('resultOverlay').style.display='none';
   document.getElementById('btnShowResult').style.display='block';
+  updatePauseBtn();
 
   function loop(){
-    const skipInterval = parseInt(document.getElementById('speedS').value) * 2;
-    tickCount++;
-    if(tickCount >= skipInterval){
-      tickCount=0;
-      if(savedFrames.length>0){
-        updateWaterMesh(savedFrames[frameIdx]);
-        frameIdx = (frameIdx + 1) % savedFrames.length;  // ループ再生
+    if(!isPaused){
+      const skipInterval = parseInt(document.getElementById('speedS').value) * 2;
+      tickCount++;
+      if(tickCount >= skipInterval){
+        tickCount=0;
+        if(savedFrames.length>0){
+          updateWaterMesh(savedFrames[frameIdx]);
+          frameIdx = (frameIdx + 1) % savedFrames.length;
+        }
       }
     }
     if(renderer&&scene&&camera) renderer.render(scene,camera);
     replayRAF=requestAnimationFrame(loop);
   }
   loop();
+}
+
+function startReplay2d(){
+  if(replay2dRAF){cancelAnimationFrame(replay2dRAF);replay2dRAF=null;}
+  frameIdx=0; isPaused=false;
+  let tickCount=0;
+  document.getElementById('resultOverlay').style.display='none';
+  document.getElementById('btnShowResult').style.display='block';
+  updatePauseBtn();
+
+  function loop(){
+    if(!isPaused){
+      const skipInterval = parseInt(document.getElementById('speedS').value) * 2;
+      tickCount++;
+      if(tickCount >= skipInterval){
+        tickCount=0;
+        if(savedFrames.length>0){
+          draw2D(savedFrames[frameIdx], null);
+          frameIdx = (frameIdx + 1) % savedFrames.length;
+        }
+      }
+    }
+    replay2dRAF=requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function switchView(mode){
+  viewMode=mode;
+  const c2el=document.getElementById('canvas2d');
+  const c3el=document.getElementById('canvas3d');
+  const camHintEl=document.getElementById('camHint');
+
+  if(mode==='2d'){
+    // 3D停止・2D開始
+    if(replayRAF){cancelAnimationFrame(replayRAF);replayRAF=null;}
+    c3el.style.display='none';
+    c2el.style.display='block';
+    camHintEl.style.display='none';
+    document.getElementById('btnView2d').style.display='none';
+    document.getElementById('btnView3d').style.display='inline-block';
+    document.getElementById('btnView3d').classList.remove('active');
+    startReplay2d();
+  } else {
+    // 2D停止・3D開始
+    if(replay2dRAF){cancelAnimationFrame(replay2dRAF);replay2dRAF=null;}
+    c2el.style.display='none';
+    c3el.style.display='block';
+    camHintEl.style.display='block';
+    document.getElementById('btnView3d').style.display='none';
+    document.getElementById('btnView2d').style.display='inline-block';
+    document.getElementById('btnView2d').classList.remove('active');
+    startReplay();
+  }
+}
+
+function togglePause(){
+  isPaused=!isPaused;
+  updatePauseBtn();
+}
+
+function updatePauseBtn(){
+  const btn=document.getElementById('btnPause');
+  if(isPaused){
+    btn.textContent='▶ 再生';
+    btn.classList.add('paused');
+  } else {
+    btn.textContent='⏸ 一時停止';
+    btn.classList.remove('paused');
+  }
 }
 
 function showOverlay(){
@@ -1382,8 +1486,8 @@ function showOverlay(){
 function hideOverlay(){
   document.getElementById('resultOverlay').style.display='none';
   document.getElementById('btnShowResult').style.display='block';
-  // restart replay from beginning
-  startReplay();
+  if(viewMode==='2d') startReplay2d();
+  else startReplay();
 }
 
 // ============================================================
@@ -1412,7 +1516,11 @@ function drawTimeline(){
 function fullReset(){
   if(animFrame){cancelAnimationFrame(animFrame);animFrame=null;}
   if(replayRAF){cancelAnimationFrame(replayRAF);replayRAF=null;}
-  simRunning=false; savedFrames=[];
+  if(replay2dRAF){cancelAnimationFrame(replay2dRAF);replay2dRAF=null;}
+  simRunning=false; savedFrames=[]; isPaused=false; viewMode='3d';
+  document.getElementById('btnPause').style.display='none';
+  document.getElementById('btnView2d').style.display='none';
+  document.getElementById('btnView3d').style.display='none';
   coastHist=[]; baseCoastHist=[]; baseArrival=null;
   ['rWave','rBase','rAttn','rArr','rBaseArr'].forEach(id=>{
     const el=document.getElementById(id);
