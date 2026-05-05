@@ -44,5 +44,4 @@ https://nk-1994.github.io/tsunami-simulator
 | ファイル | 内容 |
 |---|---|
 | `index.html` | シミュレーター本体 |
-| `tsunami_doc.pdf` | 物理モデル・操作説明文書（LaTeX作成） |
-| `tsunami_sim.jl` | Julia版シミュレーター（高精度計算用） |
+| [tsunami_doc.pdf](./tsunami_doc.pdf) | 物理モデル・操作説明文書 |
